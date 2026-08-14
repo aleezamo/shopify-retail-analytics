@@ -21,5 +21,6 @@ export async function syncProducts(admin) {
   `);
 
   const data = await response.json();
+  console.log(data);
   return data;
 }
