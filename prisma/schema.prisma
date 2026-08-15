@@ -32,3 +32,117 @@ model Session {
   refreshToken        String?
   refreshTokenExpires DateTime?
 }
+
+model Shop {
+  shopDomain           String   @id
+  initialSyncCompleted Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model Product {
+  id           String    @id @default(cuid())
+  shopifyId    String    @unique // gid://shopify/Product/123456789
+  shop         String    // shopDomain, scopes this row to a merchant
+  title        String
+  handle       String?
+  status       String?   // ACTIVE, DRAFT, ARCHIVED
+  vendor       String?
+  productType  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  variants     Variant[]
+  @@index([shop])
+}
+
+model Variant {
+  id               String   @id @default(cuid())
+  shopifyId        String   @unique // gid://shopify/ProductVariant/123456789
+  productShopifyId String   // FK to Product.shopifyId
+  product          Product  @relation(fields: [productShopifyId], references: [shopifyId], onDelete: Cascade)
+  title            String?
+  sku              String?
+  price            String?
+  compareAtPrice   String?
+  inventoryItemId  String?  // gid://shopify/InventoryItem/123456789 - links to InventoryItem
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  inventoryItem    InventoryItem? @relation(fields: [inventoryItemId], references: [shopifyId])
+
+  @@index([productShopifyId])
+  @@index([sku])
+}
+
+model InventoryItem {
+  id         String   @id @default(cuid())
+  shopifyId  String   @unique // gid://shopify/InventoryItem/123456789
+  shop       String
+  sku        String?
+  tracked    Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  variants   Variant[]
+  levels     InventoryLevel[]
+
+  @@index([shop])
+}
+
+model Location {
+  id         String   @id @default(cuid())
+  shopifyId  String   @unique // gid://shopify/Location/123456789
+  shop       String
+  name       String
+  isActive   Boolean  @default(true)
+
+  levels     InventoryLevel[]
+
+  @@index([shop])
+}
+
+model InventoryLevel {
+  id               String   @id @default(cuid())
+  inventoryItemId  String   // FK to InventoryItem.shopifyId
+  inventoryItem    InventoryItem @relation(fields: [inventoryItemId], references: [shopifyId], onDelete: Cascade)
+  locationId       String   // FK to Location.shopifyId
+  location         Location @relation(fields: [locationId], references: [shopifyId], onDelete: Cascade)
+  available        Int      @default(0)
+  updatedAt        DateTime @updatedAt
+
+  @@unique([inventoryItemId, locationId]) // one row per item+location combo
+  @@index([inventoryItemId])
+  @@index([locationId])
+}
+
+model Order {
+  id                 String   @id @default(cuid())
+  shopifyId          String   @unique // gid://shopify/Order/123456789
+  shop               String
+  name               String   // e.g. "#1001"
+  email              String?
+  financialStatus    String?  // PAID, PENDING, REFUNDED, etc.
+  fulfillmentStatus  String?  // FULFILLED, UNFULFILLED, PARTIAL, etc.
+  totalAmount        String?
+  currency            String?
+  createdAt          DateTime
+  updatedAt          DateTime @updatedAt
+
+  lineItems          OrderLineItem[]
+
+  @@index([shop])
+  @@index([createdAt])
+}
+
+model OrderLineItem {
+  id               String   @id @default(cuid())
+  shopifyId        String   @unique // gid://shopify/LineItem/123456789
+  orderShopifyId   String   // FK to Order.shopifyId
+  order            Order    @relation(fields: [orderShopifyId], references: [shopifyId], onDelete: Cascade)
+  variantShopifyId String?  // FK-ish to Variant.shopifyId (nullable - variant may be deleted)
+  title            String
+  quantity         Int
+  price            String?
+
+  @@index([orderShopifyId])
+}
