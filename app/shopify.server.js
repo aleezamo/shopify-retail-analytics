@@ -22,6 +22,34 @@ const shopify = shopifyApp({
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
     : {}),
+
+  hooks: {
+    afterAuth: async ({ session }) => {
+      // Register webhooks for this shop
+      await shopify.registerWebhooks({ session });
+ 
+      // Check if we've already done the initial full sync for this shop
+      const existing = await prisma.shop.findUnique({
+        where: { shopDomain: session.shop },
+      });
+ 
+      if (!existing || !existing.initialSyncCompleted) {
+        // Fire and forget - kicks off the PRODUCTS bulk operation and
+        // returns immediately. The bulk_operations/finish webhook
+        // (routes/webhooks.bulk-operations.jsx) picks up from there,
+        // chains into the ORDERS bulk op, and marks completion.
+        startInitialSync(session).catch((err) => {
+          console.error(`Failed to start initial sync for ${session.shop}:`, err);
+        });
+ 
+        await prisma.shop.upsert({
+          where: { shopDomain: session.shop },
+          create: { shopDomain: session.shop, initialSyncCompleted: false },
+          update: {},
+        });
+      }
+    },
+  },
 });
 
 export default shopify;

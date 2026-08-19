@@ -40,6 +40,19 @@ model Shop {
   updatedAt            DateTime @updatedAt
 }
 
+model BulkOperationJob {
+  id                String   @id @default(cuid())
+  shop              String
+  type              String   // "PRODUCTS" | "ORDERS"
+  bulkOperationGid  String   @unique // gid://shopify/BulkOperation/123 - matches admin_graphql_api_id from the webhook
+  status            String   @default("RUNNING") // RUNNING | COMPLETED | FAILED
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([shop])
+  @@index([status])
+}
+
 model Product {
   id           String    @id @default(cuid())
   shopifyId    String    @unique // gid://shopify/Product/123456789
