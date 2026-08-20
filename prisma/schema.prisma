@@ -40,6 +40,18 @@ model Shop {
   updatedAt            DateTime @updatedAt
 }
 
+model Notification {
+  id        String   @id @default(cuid())
+  shop      String
+  type      String   // "OUT_OF_STOCK" | "LOW_STOCK" | "STOCKOUT_RISK"
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([shop])
+  @@index([shop, read])
+}
+
 model BulkOperationJob {
   id                String   @id @default(cuid())
   shop              String
